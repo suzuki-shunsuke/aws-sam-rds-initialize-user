@@ -118,7 +118,7 @@ func (ep Entrypoint) afterMasterUpdated(ctx context.Context, sess client.ConfigP
 		return fmt.Errorf("generate a application user password: %w", err)
 	}
 
-	// TODO user name
+	// TODO configure user name
 	// create a user
 	userName := "app"
 	if err := createPostgresUser(ctx, db, ParamsCreateUser{
@@ -139,7 +139,7 @@ func (ep Entrypoint) afterMasterUpdated(ctx context.Context, sess client.ConfigP
 	}
 
 	// create AWS Secrets Manager's secret for user password
-	// TODO secret name
+	// TODO configure secret name
 	secretsManagerSvc := secretsmanager.New(sess)
 	if _, err := secretsManagerSvc.CreateSecretWithContext(ctx, &secretsmanager.CreateSecretInput{
 		Name:         aws.String("rds-app-user-password-" + identifier),
@@ -214,7 +214,7 @@ type DBConnectInfo struct {
 }
 
 func (connInfo DBConnectInfo) DSN() string {
-	// TODO query
+	// TODO support query string
 	return connInfo.Driver + "://" + connInfo.UserName + ":" + connInfo.Password + "@" + connInfo.Host + ":" + strconv.FormatInt(connInfo.Port, 10) + "/" + connInfo.DBName
 }
 
