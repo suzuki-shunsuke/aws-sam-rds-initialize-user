@@ -1,0 +1,26 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  rds-create-cluster-hook
+  
+  Sample SAM Template for rds-create-cluster-hook
+
+Globals:
+  Function:
+    Timeout: 600
+
+Resources:
+  CreateRDSClusterHookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: cmd/rds-initialize-user
+      Handler: main
+      Runtime: go1.x
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+            - rds:ModifyDBCluster
+            Resource: "*"
