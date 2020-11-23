@@ -2,9 +2,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  rds-create-cluster-hook
+  rds-initialize-user
   
-  Sample SAM Template for rds-create-cluster-hook
+  Reset RDS master user's password and create a Database user for application automatically when a RDS database is created.
 
 Globals:
   Function:
