@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -17,16 +18,27 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	"github.com/d5/tengo/v2"
+	"github.com/d5/tengo/v2/stdlib"
 	_ "github.com/lib/pq"
 	"github.com/sethvargo/go-password/password"
 	"github.com/sirupsen/logrus"
+	"github.com/suzuki-shunsuke/aws-sam-rds-initialize-user/pkg/constant"
+	"github.com/suzuki-shunsuke/go-dataeq/dataeq"
 )
 
 type Entrypoint struct{}
 
+type Config struct {
+	EventFilter string
+}
+
 func (ep Entrypoint) Start(ctx context.Context, ev events.CloudWatchEvent) error {
 	logrus.SetFormatter(&logrus.JSONFormatter{})
-	if err := ep.start(ctx, ev); err != nil {
+	cfg := Config{
+		EventFilter: os.Getenv("EVENT_FILTER"),
+	}
+	if err := ep.start(ctx, ev, cfg); err != nil {
 		logrus.WithError(err).Error("start")
 		return err
 	}
@@ -37,7 +49,7 @@ type EventDetail struct {
 	SourceIdentifier string
 }
 
-func (ep Entrypoint) start(ctx context.Context, ev events.CloudWatchEvent) error { //nolint:funlen
+func (ep Entrypoint) start(ctx context.Context, ev events.CloudWatchEvent, cfg Config) error { //nolint:funlen
 	ed := EventDetail{}
 	if err := json.Unmarshal(ev.Detail, &ed); err != nil {
 		return fmt.Errorf("parse a request body detail: %w", err)
@@ -45,7 +57,6 @@ func (ep Entrypoint) start(ctx context.Context, ev events.CloudWatchEvent) error
 	if ed.SourceIdentifier == "" {
 		return errors.New(`request body is invalid. the field detail.SourceIdentifier is missing`)
 	}
-	// TODO filter event by identifier, tags
 	logE := logrus.WithFields(logrus.Fields{
 		"identifier": ed.SourceIdentifier,
 	})
@@ -53,17 +64,6 @@ func (ep Entrypoint) start(ctx context.Context, ev events.CloudWatchEvent) error
 
 	sess := session.Must(session.NewSession())
 	rdsSvc := rds.New(sess)
-
-	masterPW, err := createDBPassword()
-	if err != nil {
-		return fmt.Errorf("generate a master user password: %w", err)
-	}
-
-	if err := ep.changeMasterPassword(ctx, rdsSvc, ed.SourceIdentifier, masterPW); err != nil {
-		return fmt.Errorf("change the master user password: %w", err)
-	}
-	logE.Info("master user password is changed to a random password")
-
 	// describe the DB
 	describeDBClustersOutput, err := rdsSvc.DescribeDBClustersWithContext(ctx, &rds.DescribeDBClustersInput{
 		DBClusterIdentifier: aws.String(ed.SourceIdentifier),
@@ -76,6 +76,30 @@ func (ep Entrypoint) start(ctx context.Context, ev events.CloudWatchEvent) error
 	if err != nil {
 		return err
 	}
+
+	dbClusterInterface, err := dataeq.JSON.Convert(dbCluster)
+	if err != nil {
+		return fmt.Errorf("dataeq.JSON.Convert(*rds.DBCluster): %w", err)
+	}
+
+	f, err := ep.filterEvent(ctx, dbClusterInterface, cfg)
+	if err != nil {
+		return err
+	}
+	if !f {
+		logE.Info("this event is ignored")
+		return nil
+	}
+
+	masterPW, err := createDBPassword()
+	if err != nil {
+		return fmt.Errorf("generate a master user password: %w", err)
+	}
+
+	if err := ep.changeMasterPassword(ctx, rdsSvc, ed.SourceIdentifier, masterPW); err != nil {
+		return fmt.Errorf("change the master user password: %w", err)
+	}
+	logE.Info("master user password is changed to a random password")
 
 	driver, err := getDriverFromDBCluster(dbCluster)
 	if err != nil {
@@ -101,6 +125,29 @@ func (ep Entrypoint) start(ctx context.Context, ev events.CloudWatchEvent) error
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (ep Entrypoint) filterEvent(ctx context.Context, dbCluster interface{}, cfg Config) (bool, error) {
+	if cfg.EventFilter == "" {
+		return true, nil
+	}
+	script := tengo.NewScript([]byte(cfg.EventFilter))
+	script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
+	if err := script.Add("DBCluster", dbCluster); err != nil {
+		return false, fmt.Errorf("add DBCluster to the Tengo script: %w", err)
+	}
+	compiled, err := script.RunContext(ctx)
+	if err != nil {
+		return false, fmt.Errorf("compile and run the Tengo script: %w", err)
+	}
+	if !compiled.IsDefined(constant.Result) {
+		return false, constant.ErrNoBoolVariable
+	}
+	v := compiled.Get(constant.Result)
+	if t := v.ValueType(); t != "bool" {
+		return false, errors.New(`the type of the variable "result" should be bool, but actually ` + t)
+	}
+	return v.Bool(), nil
 }
 
 func (ep Entrypoint) afterMasterUpdated(ctx context.Context, sess client.ConfigProvider, identifier string, connInfo DBConnectInfo) error { //nolint:funlen
