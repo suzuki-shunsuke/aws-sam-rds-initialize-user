@@ -1,0 +1,31 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  rds-initialize-user
+  
+  Reset RDS master user's password and create a Database user for application automatically when a RDS database is created.
+
+Globals:
+  Function:
+    Timeout: 600
+
+Resources:
+  CreateRDSClusterHookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: cmd/rds-initialize-user
+      Handler: main
+      Runtime: go1.x
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - rds:ModifyDBCluster
+          - rds:DescribeDBClusters
+          Resource: "*"
+        - Effect: Allow
+          Action:
+          - secretsmanager:CreateSecret
+          Resource: "*"
