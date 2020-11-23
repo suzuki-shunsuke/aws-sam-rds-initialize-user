@@ -121,6 +121,8 @@ func (ep Entrypoint) afterMasterUpdated(ctx context.Context, sess client.ConfigP
 	// TODO configure user name
 	// create a user
 	userName := "app"
+	// TODO support MySQL
+	// TODO support to customize SQL
 	if err := createPostgresUser(ctx, db, ParamsCreateUser{
 		DBName:   connInfo.DBName,
 		UserName: userName,
@@ -140,6 +142,7 @@ func (ep Entrypoint) afterMasterUpdated(ctx context.Context, sess client.ConfigP
 
 	// create AWS Secrets Manager's secret for user password
 	// TODO configure secret name
+	// TODO support to customize secret
 	secretsManagerSvc := secretsmanager.New(sess)
 	if _, err := secretsManagerSvc.CreateSecretWithContext(ctx, &secretsmanager.CreateSecretInput{
 		Name:         aws.String("rds-app-user-password-" + identifier),
