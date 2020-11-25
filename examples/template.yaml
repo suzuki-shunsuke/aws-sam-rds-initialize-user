@@ -1,0 +1,85 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  rds-initialize-user
+  
+  Reset RDS master user's password and create a Database user for application automatically when a RDS database is created.
+
+Globals:
+  Function:
+    Timeout: 600
+
+Resources:
+  CreateRDSClusterHookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: cmd/rds-initialize-user
+      Handler: main
+      Runtime: go1.x
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - rds:ModifyDBCluster
+          - rds:DescribeDBClusters
+          Resource: "*"
+        - Effect: Allow
+          Action:
+          - secretsmanager:CreateSecret
+          Resource: "*"
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-xxx
+        SubnetIds:
+        - subnet-xxx
+        - subnet-xxx
+      Environment:
+        Variables:
+          EVENT_FILTER: |
+            result := func() {
+              for tag in DBCluster.TagList {
+                if tag.Key == "env" && tag.Value == "staging" {
+                  return false
+                }
+              }
+              return true
+            }()
+          USERS: "foo bar"
+          SQL: |
+            fmt := import("fmt")
+            result := func() {
+              arr := []
+              for k, v in Passwords {
+                  arr = append(
+                    arr, {
+                      query: fmt.sprintf("CREATE ROLE %s WITH LOGIN PASSWORD '%s'", k, v),
+                      args: []
+                    })
+                  if DBCluster.DatabaseName != "" {
+                    arr = append(
+                      arr, {
+                        query: fmt.sprintf("ALTER DATABASE %s OWNER TO %s", DBCluster.DatabaseName, k),
+                        args: []
+                      })
+                  }
+              }
+              return arr
+            }()
+          SECRETS: |
+            result := func() {
+              arr := []
+              for k, v in Passwords {
+                  arr = append(
+                    arr, {
+                      name: "rds-user-" + DBCluster.DBClusterIdentifier + "-" + k,
+                      secret: {
+                        username: k,
+                        password: v
+                      }
+                    }
+                  )
+              }
+              return arr
+            }()
