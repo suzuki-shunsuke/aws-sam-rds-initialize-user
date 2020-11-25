@@ -149,27 +149,28 @@ func (ep Entrypoint) afterMasterUpdated(
 	})
 	pws := make(map[string]string, len(cfg.Users))
 	if err := genPasswords(cfg.Users, pws); err != nil {
-		return err
+		return fmt.Errorf("create passwords: %w", err)
 	}
 
 	queries, err := ep.evaluateSQL(ctx, dbCluster, cfg, pws)
 	if err != nil {
-		return err
-	}
-
-	if len(queries) != 0 {
-		if err := ep.runSQLs(ctx, connInfo, queries); err != nil {
-			return err
-		}
-		logE.Info("SQL has been executed")
+		return fmt.Errorf("evaluate the parameter SQL: %w", err)
 	}
 
 	secrets, err := ep.evaluateSecrets(ctx, dbCluster, cfg, pws)
 	if err != nil {
-		return err
+		return fmt.Errorf("evaluate the parameter 'secrets': %w", err)
 	}
+
+	if len(queries) != 0 {
+		if err := ep.runSQLs(ctx, connInfo, queries); err != nil {
+			return fmt.Errorf("run SQL: %w", err)
+		}
+		logE.Info("SQL has been executed")
+	}
+
 	if err := ep.createSecrets(ctx, secretsManagerSvc, secrets); err != nil {
-		return err
+		return fmt.Errorf("create secrets: %w", err)
 	}
 
 	logE.Info("store application user's password at AWS Secrets Manager")
@@ -184,7 +185,7 @@ func (ep Entrypoint) createSecrets(
 			Name:         aws.String(secret.Name),
 			SecretString: aws.String(secret.Secret),
 		}); err != nil {
-			return fmt.Errorf("store application user's password at AWS Secrets Manager: %w", err)
+			return fmt.Errorf("create AWS Secrets Manager's secret '%s': %w", secret.Name, err)
 		}
 	}
 	return nil

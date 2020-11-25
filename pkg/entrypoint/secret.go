@@ -17,7 +17,10 @@ type Secret struct {
 func (ep Entrypoint) evaluateSecrets(
 	ctx context.Context, dbCluster interface{}, cfg Config, passwords map[string]string,
 ) ([]Secret, error) {
-	compiled, err := ep.evaluate(ctx, cfg.SQL, dbCluster, passwords)
+	if cfg.Secrets == "" {
+		return []Secret{}, nil
+	}
+	compiled, err := ep.evaluate(ctx, cfg.Secrets, dbCluster, passwords)
 	if err != nil {
 		return nil, err
 	}

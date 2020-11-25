@@ -39,7 +39,7 @@ Resources:
                 }
               }
               return true
-            }
+            }()
           USERS: "foo bar"
           SQL: |
             fmt := import("fmt")
@@ -49,28 +49,31 @@ Resources:
                   arr = append(
                     arr, {
                       query: fmt.sprintf("CREATE ROLE %s WITH LOGIN PASSWORD '%s'", k, v),
-                      args: [],
-                    },
-                    {
-                      query: fmt.sprintf("ALTER DATABASE %s OWNER TO %s;", DBCluster.DatabaseName, k),
-                      args: [],
-                    },
-                  )
+                      args: []
+                    })
+                  if DBCluster.DatabaseName != "" {
+                    arr = append(
+                      arr, {
+                        query: fmt.sprintf("ALTER DATABASE %s OWNER TO %s", DBCluster.DatabaseName, k),
+                        args: []
+                      })
+                  }
               }
               return arr
-            }
+            }()
           SECRETS: |
             result := func() {
               arr := []
               for k, v in Passwords {
                   arr = append(
                     arr, {
-                      name: "rds-user-" + DBCluster.Identifier + "-" k,
+                      name: "rds-user-" + DBCluster.DBClusterIdentifier + "-" + k,
                       secret: {
                         username: k,
-                        password: v,
-                      },
-                    },
+                        password: v
+                      }
+                    }
                   )
               }
               return arr
+            }()
