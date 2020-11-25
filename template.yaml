@@ -40,7 +40,7 @@ Resources:
               }
               return true
             }
-          PASSWORDS: "foo bar"
+          USERS: "foo bar"
           SQL: |
             fmt := import("fmt")
             result := func() {
@@ -65,7 +65,7 @@ Resources:
               for k, v in Passwords {
                   arr = append(
                     arr, {
-                      name: k,
+                      name: "rds-user-" + DBCluster.Identifier + "-" k,
                       secret: {
                         username: k,
                         password: v,

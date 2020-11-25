@@ -147,8 +147,8 @@ func (ep Entrypoint) afterMasterUpdated(
 	logE := logrus.WithFields(logrus.Fields{
 		"identifier": identifier,
 	})
-	pws := make(map[string]string, len(cfg.Passwords))
-	if err := genPasswords(cfg.Passwords, pws); err != nil {
+	pws := make(map[string]string, len(cfg.Users))
+	if err := genPasswords(cfg.Users, pws); err != nil {
 		return err
 	}
 
