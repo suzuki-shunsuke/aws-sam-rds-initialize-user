@@ -29,3 +29,48 @@ Resources:
           Action:
           - secretsmanager:CreateSecret
           Resource: "*"
+      Environment:
+        Variables:
+          EVENT_FILTER: |
+            result := func() {
+              for tag in DBCluster.TagList {
+                if tag.Key == "env" && tag.Value == "staging" {
+                  return false
+                }
+              }
+              return true
+            }
+          PASSWORDS: "foo bar"
+          SQL: |
+            fmt := import("fmt")
+            result := func() {
+              arr := []
+              for k, v in Passwords {
+                  arr = append(
+                    arr, {
+                      query: fmt.sprintf("CREATE ROLE %s WITH LOGIN PASSWORD '%s'", k, v),
+                      args: [],
+                    },
+                    {
+                      query: fmt.sprintf("ALTER DATABASE %s OWNER TO %s;", DBCluster.DatabaseName, k),
+                      args: [],
+                    },
+                  )
+              }
+              return arr
+            }
+          SECRETS: |
+            result := func() {
+              arr := []
+              for k, v in Passwords {
+                  arr = append(
+                    arr, {
+                      name: k,
+                      secret: {
+                        username: k,
+                        password: v,
+                      },
+                    },
+                  )
+              }
+              return arr
