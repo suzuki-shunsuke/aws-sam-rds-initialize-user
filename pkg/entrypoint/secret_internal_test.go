@@ -7,6 +7,7 @@ import (
 )
 
 func TestEntrypoint_parseSecrets(t *testing.T) {
+	t.Parallel()
 	ep := Entrypoint{}
 	data := []struct {
 		title string
@@ -48,6 +49,7 @@ func TestEntrypoint_parseSecrets(t *testing.T) {
 	for _, d := range data {
 		d := d
 		t.Run(d.title, func(t *testing.T) {
+			t.Parallel()
 			secrets, err := ep.parseSecrets(d.arr)
 			if d.isErr {
 				require.NotNil(t, err)
