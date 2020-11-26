@@ -29,6 +29,12 @@ Resources:
           Action:
           - secretsmanager:CreateSecret
           Resource: "*"
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-xxx
+        SubnetIds:
+        - subnet-xxx
+        - subnet-xxx
       Environment:
         Variables:
           EVENT_FILTER: |

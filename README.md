@@ -35,6 +35,36 @@ When a RDS cluster is created, this Lambda function is triggered by EventBridge.
 the Lambda Function changes the master user's password to a random string, and connect the database and execute SQL.
 To connect the RDS cluster, this Lambda function should be connected to VPC.
 
+## How to setup
+
+Coming soon.
+
+## Configuration
+
+### Environment variables
+
+* EVENT_FILTER: Tengo script which returns `true` if the event is processed. If the script returns `false`, the event is ignored
+* USERS: a list of user names which are joined by a space `" "`
+  Passwords are generated and the map of user name and password is passed to Tengo script.
+* SQL: Tengo script which returns a list of executed SQLs
+* SECRETS: Tengo script which returns a list of secrets
+
+### Tengo
+
+https://github.com/d5/tengo
+
+To support flexible configuration, this Lambda function adopts [Tengo](https://github.com/d5/tengo) in the configuration.
+
+### Parameters of Tengo Script
+
+* DBCluster: The response of rds describe clusters API
+  * https://awscli.amazonaws.com/v2/documentation/api/latest/reference/rds/describe-db-clusters.html#output
+* Passwords: `map[string]string`. The key is a user name and the value is a generated password.
+
+### Example
+
+Please see [examples/template.yaml](examples/template.yaml).
+
 ## LICENSE
 
 [MIT](LICENSE)
