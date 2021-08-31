@@ -11,5 +11,5 @@ require (
 	github.com/sethvargo/go-password v0.2.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
-	github.com/suzuki-shunsuke/go-dataeq v1.0.1
+	github.com/suzuki-shunsuke/go-dataeq/v2 v2.0.0
 )
